@@ -29,6 +29,31 @@ const Status QU_Select(const string & result,
    // Qu_Select sets up things and then calls ScanSelect to do the actual work
     cout << "Doing QU_Select " << endl;
 
+	Status status;
+	AttrDesc attrDesc;
+	AttrDesc projAttrDesc[projCnt];
+	
+	// For each projection, get description of attributes
+	for(int i = 0; i < projCnt; i++)
+	{
+		status = attrCat->getInfo(projNames[i].relName,projNames[i].attrName,attrDesc);
+		if(status != OK) return status;
+
+		projAttrDesc[i] = attrDesc;
+	}
+
+	// If there is a WHERE clause, get description of attribute in WHERE clause. Otherwise, no filter
+	AttrDesc* attrDescPointer = nullptr;
+	int attrLength = 0;
+	if(attr != nullptr)
+	{
+		attrDescPointer = new AttrDesc;
+		status = attrCat->getInfo(attr->relName,attr->attrName,*attrDescPointer);
+		if(status != OK) return status;
+		attrLength = attrDescPointer->attrLen;
+	} 
+
+	return ScanSelect(result, projCnt, projAttrDesc, attrDescPointer, op, attrValue, attrLength);
 }
 
 
