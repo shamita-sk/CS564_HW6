@@ -16,11 +16,54 @@ const Status QU_Delete(const string & relation,
 		       const Datatype type, 
 		       const char *attrValue)
 {
-// part 6
-return OK;
 
+	Status status;
+	RID rid;
+	AttrDesc attrD;
+	HeapFileScan *scanner;
 
+	// check scanner object
+	scanner = new HeapFileScan(relation, status);
+	if (status != OK) return status;
 
+	// checking attribute information
+	status = attrCat->getInfo(relation, attrName, attrD);
+	if (status != OK) return status;
+	
+	int offsetVal = attrDesc.attrOffset;
+	int lengthVal = attrDesc.attrLen;
+	int intVal;
+	float floatVal;
+
+	// checking types of condition, do scans accordingly
+	switch(type)
+	{
+		case INTEGER:
+			intVal = atoi(attrValue);
+			status = scanner->startScan(offsetVal, lengthVal, type,(char *)&intVal, op);
+			break;
+		case FLOAT:
+			floatVal = atoi(attrValue);
+			status = scanner->startScan(offsetVal, lengthVal, type,(char *)&floatVal, op);
+			break;
+		case STRING:
+			status = scanner->startScan(offsetVal, lengthVal, type, attrVal, op);
+			break;
+	}
+	if (status != OK) return status;
+
+	// iterating through and checking the next scanner object; delete records accordingly
+	while ((status = scanner->scanNext(rid)) == OK)
+	{
+		if((status = scanner->deleteRecord()) != OK)
+			return status;
+	}
+
+	// ending scan
+	scanner->endScan();
+	delete scanner;
+
+	return OK;
 }
 
 
