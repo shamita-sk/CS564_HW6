@@ -24,7 +24,7 @@ const Status QU_Delete(const string & relation,
 
 	Status status;
 	RID rid;
-	AttrDesc attrD;
+	AttrDesc attrDesc;
 	HeapFileScan *scanner;
 
 	// check scanner object
@@ -32,7 +32,7 @@ const Status QU_Delete(const string & relation,
 	if (status != OK) return status;
 
 	// checking attribute information
-	status = attrCat->getInfo(relation, attrName, attrD);
+	status = attrCat->getInfo(relation, attrName, attrDesc);
 	if (status != OK) return status;
 	
 	int offsetVal = attrDesc.attrOffset;
@@ -52,7 +52,7 @@ const Status QU_Delete(const string & relation,
 			status = scanner->startScan(offsetVal, lengthVal, type,(char *)&floatVal, op);
 			break;
 		case STRING:
-			status = scanner->startScan(offsetVal, lengthVal, type, attrVal, op);
+			status = scanner->startScan(offsetVal, lengthVal, type, attrValue, op);
 			break;
 	}
 	if (status != OK) return status;
