@@ -32,8 +32,7 @@ const Status QU_Delete(const string & relation,
 	if (status != OK) return status;
 
 	// checking attribute information
-	status = attrCat->getInfo(relation, attrName, attrDesc);
-	if (status != OK) return status;
+	attrCat->getInfo(relation, attrName, attrDesc);
 	
 	int offsetVal = attrDesc.attrOffset;
 	int lengthVal = attrDesc.attrLen;
@@ -48,20 +47,26 @@ const Status QU_Delete(const string & relation,
 			status = scanner->startScan(offsetVal, lengthVal, type,(char *)&intVal, op);
 			break;
 		case FLOAT:
-			floatVal = atoi(attrValue);
+			floatVal = atof(attrValue);
 			status = scanner->startScan(offsetVal, lengthVal, type,(char *)&floatVal, op);
 			break;
 		case STRING:
 			status = scanner->startScan(offsetVal, lengthVal, type, attrValue, op);
 			break;
 	}
-	if (status != OK) return status;
+	//delete scanner if the status isn't correct
+	if (status != OK)
+	{
+		delete scanner;
+		return status;
+	}
 
 	// iterating through and checking the next scanner object; delete records accordingly
 	while ((status = scanner->scanNext(rid)) == OK)
 	{
-		if((status = scanner->deleteRecord()) != OK)
-			return status;
+		if (status != OK) return status;
+		status = scanner->deleteRecord();
+		if (status != OK) return status;
 	}
 
 	// ending scan
