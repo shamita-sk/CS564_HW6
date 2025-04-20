@@ -1,34 +1,22 @@
 #include "catalog.h"
 #include "query.h"
 #include "heapfile.h"
-#include "string.h"
-#include <cstdlib> // For atoi and atof functions
+#include <cstring>
+#include <cstdlib>
+#include <iostream> // for debugging ONLY
 
-/*
- * Inserts a record into the specified relation.
- *
- * Returns:
- * 	OK on success
- * 	an error code otherwise
- */
 const Status QU_Insert(const string & relation, 
-	const int attrCnt, 
-	const attrInfo attrList[])
+    const int attrCnt, 
+    const attrInfo attrList[])
 {
     Status status;
-    int relAttrCount;           // Number of attributes in the relation
-    AttrDesc *relAttrs;         // Array of attribute descriptors of the relation
+    int relAttrCount;
+    AttrDesc *relAttrs;
     
     // Get relation information
     status = attrCat->getRelInfo(relation, relAttrCount, relAttrs);
     if (status != OK) {
         return status;
-    }
-    
-    // Check if the number of attributes provided matches the relation schema
-    if (attrCnt != relAttrCount) {
-        delete [] relAttrs;
-        return ATTRTYPEMISMATCH;
     }
     
     // Calculate record length
@@ -37,96 +25,72 @@ const Status QU_Insert(const string & relation,
         recLen += relAttrs[i].attrLen;
     }
     
-    // Create a record buffer with proper initialization
+    // Create and zero the record buffer
     char *record = new char[recLen];
     memset(record, 0, recLen);
     
-    // For each attribute in the relation schema
+    // Process each attribute in the relation schema
     for (int i = 0; i < relAttrCount; i++) {
-        bool attrFound = false;
+        bool found = false;
         
-        // Find the attribute in attrList
+        // Find the corresponding attribute in attrList
         for (int j = 0; j < attrCnt; j++) {
             if (strcmp(relAttrs[i].attrName, attrList[j].attrName) == 0) {
-                attrFound = true;
+                found = true;
                 
-                // Check if the attribute types match
-                if (relAttrs[i].attrType != attrList[j].attrType) {
-                    delete [] relAttrs;
-                    delete [] record;
-                    return ATTRTYPEMISMATCH;
-                }
-                
-                // Handle different attribute types
+                // Process based on attribute type
                 if (relAttrs[i].attrType == INTEGER) {
-                    // For integers, convert string to int if needed
-                    int value;
-                    if (attrList[j].attrValue != nullptr) {
-                        // If attrValue is a char*, convert it to int
-                        if (attrList[j].attrLen == 0) {
-                            value = atoi((char*)attrList[j].attrValue);
-                        } else {
-                            // If it's already an integer in binary form
-                            value = *((int*)attrList[j].attrValue);
-                        }
-                    } else {
-                        delete [] relAttrs;
-                        delete [] record;
-                        return ATTRNOTFOUND;
+                    // Handle integer attributes
+                    int value = 0;
+                    
+                    // Direct conversion from string
+                    if (attrList[j].attrValue != NULL) {
+                        value = atoi((const char*)attrList[j].attrValue);
                     }
-                    // Copy the integer value to the record at the proper offset
-                    memcpy(record + relAttrs[i].attrOffset, &value, sizeof(int));
+                    
+                    // Place the integer value directly in the record
+                    *((int*)(record + relAttrs[i].attrOffset)) = value;
                 }
                 else if (relAttrs[i].attrType == FLOAT) {
-                    // For floats, convert string to float if needed
-                    float value;
-                    if (attrList[j].attrValue != nullptr) {
-                        // If attrValue is a char*, convert it to float
-                        if (attrList[j].attrLen == 0) {
-                            value = (float)atof((char*)attrList[j].attrValue);
-                        } else {
-                            // If it's already a float in binary form
-                            value = *((float*)attrList[j].attrValue);
-                        }
-                    } else {
-                        delete [] relAttrs;
-                        delete [] record;
-                        return ATTRNOTFOUND;
+                    // Handle float attributes
+                    float value = 0.0;
+                    
+                    // Direct conversion from string
+                    if (attrList[j].attrValue != NULL) {
+                        value = (float)atof((const char*)attrList[j].attrValue);
                     }
-                    // Copy the float value to the record at the proper offset
-                    memcpy(record + relAttrs[i].attrOffset, &value, sizeof(float));
+                    
+                    // Place the float value directly in the record
+                    *((float*)(record + relAttrs[i].attrOffset)) = value;
                 }
                 else if (relAttrs[i].attrType == STRING) {
-                    // For strings, just copy the data
-                    if (attrList[j].attrValue != nullptr) {
-                        // Make sure we don't overflow the attribute length
-                        int copyLen = strlen((char*)attrList[j].attrValue);
-                        if (copyLen > relAttrs[i].attrLen)
-                            copyLen = relAttrs[i].attrLen;
+                    // Handle string attributes
+                    if (attrList[j].attrValue != NULL) {
+                        // Compute string length safely
+                        const char* strVal = (const char*)attrList[j].attrValue;
+                        int strLen = strlen(strVal);
                         
-                        // Copy the string value
-                        strncpy(record + relAttrs[i].attrOffset, 
-                                (char*)attrList[j].attrValue, 
-                                copyLen);
-                    } else {
-                        delete [] relAttrs;
-                        delete [] record;
-                        return ATTRNOTFOUND;
+                        // Ensure we don't overflow the field
+                        int copyLen = (strLen < relAttrs[i].attrLen) ? strLen : relAttrs[i].attrLen - 1;
+                        
+                        // Copy the string and ensure null termination
+                        strncpy(record + relAttrs[i].attrOffset, strVal, copyLen);
+                        record[relAttrs[i].attrOffset + copyLen] = '\0';
                     }
                 }
                 break;
             }
         }
         
-        // If attribute not found, return error
-        if (!attrFound) {
+        // Check if we found the attribute
+        if (!found) {
             delete [] relAttrs;
             delete [] record;
             return ATTRNOTFOUND;
         }
     }
     
-    // Insert the record into the relation
+    // Prepare to insert
     InsertFileScan scan(relation, status);
     if (status != OK) {
         delete [] relAttrs;
@@ -134,17 +98,18 @@ const Status QU_Insert(const string & relation,
         return status;
     }
     
-    // Create a Record object from the char buffer
+    // Create Record
     Record rec;
     rec.data = record;
     rec.length = recLen;
     
+    // Insert
     RID rid;
     status = scan.insertRecord(rec, rid);
     
     // Clean up
     delete [] relAttrs;
-    delete [] record;
+    delete [] record; 
     
     return status;
 }
