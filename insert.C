@@ -1,3 +1,9 @@
+/*
+Oscar Zapata - 908 440 2404
+Shamita Senthil Kumar - 908 542 2054
+Jerry - 908 364 6084
+*/
+
 #include "catalog.h"
 #include "query.h"
 #include "heapfile.h"
